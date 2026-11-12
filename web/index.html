@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Order Ops Agent</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #6b7280;
+      --accent: #2f6fde; --user: #2f6fde; --user-text: #ffffff;
+      --bot: #eef1f6; --border: #e3e6eb; --error: #b42318;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #12151b; --panel: #1a1f27; --text: #e7eaf0; --muted: #9aa3b2;
+        --accent: #5b8ef0; --user: #3b6fd4; --bot: #252b35; --border: #2c3340; --error: #f97066;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      display: flex; justify-content: center; min-height: 100vh;
+    }
+    .app { width: 100%; max-width: 760px; display: flex; flex-direction: column; padding: 16px; }
+    header { padding: 8px 0 16px; }
+    header h1 { margin: 0; font-size: 1.3rem; }
+    header p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+    #log {
+      flex: 1; background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+      padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+      min-height: 360px; max-height: 65vh;
+    }
+    .msg { max-width: 85%; padding: 10px 14px; border-radius: 12px; line-height: 1.45; white-space: pre-wrap; }
+    .user { align-self: flex-end; background: var(--user); color: var(--user-text); }
+    .bot { align-self: flex-start; background: var(--bot); }
+    .error { align-self: flex-start; color: var(--error); border: 1px solid var(--error); background: transparent; }
+    .thinking { color: var(--muted); font-style: italic; }
+    .samples { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    .samples button {
+      background: transparent; color: var(--accent); border: 1px solid var(--border);
+      border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: 0.85rem;
+    }
+    form { display: flex; gap: 8px; }
+    input {
+      flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--panel); color: var(--text); font-size: 1rem;
+    }
+    button[type=submit] {
+      padding: 12px 18px; border: 0; border-radius: 10px; background: var(--accent);
+      color: #fff; font-size: 1rem; cursor: pointer;
+    }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Order Ops Agent</h1>
+      <p>Ask about Contoso order policies. Answers come only from the policy document.</p>
+    </header>
+
+    <div id="log" aria-live="polite"></div>
+
+    <div class="samples">
+      <button type="button">Can I refund an order delivered 40 days ago?</button>
+      <button type="button">How many times can I retry a failed order?</button>
+      <button type="button">Two orders have the same ID. Which one is valid?</button>
+    </div>
+
+    <form id="chat-form">
+      <input id="question" type="text" placeholder="Type a question..." autocomplete="off" required>
+      <button type="submit" id="send">Send</button>
+    </form>
+  </div>
+
+  <script>
+    // Where the Function lives. Locally it's the func start address.
+    // When we deploy, this changes to the Azure URL.
+    const API_URL = "http://localhost:7071/api/chat";
+
+    const log = document.getElementById("log");
+    const form = document.getElementById("chat-form");
+    const input = document.getElementById("question");
+    const sendBtn = document.getElementById("send");
+
+    // textContent (not innerHTML) so nothing in a message can run as code
+    function addMessage(text, cls) {
+      const div = document.createElement("div");
+      div.className = "msg " + cls;
+      div.textContent = text;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+      return div;
+    }
+
+    async function ask(question) {
+      addMessage(question, "user");
+      const thinking = addMessage("Checking the policy...", "bot thinking");
+      sendBtn.disabled = true;
+
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question })
+        });
+
+        if (!res.ok) {
+          throw new Error("Server returned " + res.status + ": " + await res.text());
+        }
+
+        const data = await res.json();
+        thinking.remove();
+        addMessage(data.answer, "bot");
+      } catch (err) {
+        thinking.remove();
+        addMessage("Something went wrong. " + err.message, "error");
+      } finally {
+        sendBtn.disabled = false;
+        input.focus();
+      }
+    }
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const q = input.value.trim();
+      if (!q) return;
+      input.value = "";
+      ask(q);
+    });
+
+    document.querySelectorAll(".samples button").forEach((btn) => {
+      btn.addEventListener("click", () => ask(btn.textContent));
+    });
+  </script>
+</body>
+</html>
