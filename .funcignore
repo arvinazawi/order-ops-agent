@@ -6,3 +6,5 @@ __pycache__
 local.settings.json
 web/
 scripts/
+labs/
+.python_packages/

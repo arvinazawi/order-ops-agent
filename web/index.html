@@ -77,7 +77,8 @@
   <script>
     // Where the Function lives. Locally it's the func start address.
     // When we deploy, this changes to the Azure URL.
-    const API_URL = "http://localhost:7071/api/chat";
+    const API_URL = "https://apim-orderagent-dev-ar.azure-api.net/agent/chat";
+    const DEMO_KEY = "c7235d701cd14ad0b1114ba2691f4cfe";
 
     const log = document.getElementById("log");
     const form = document.getElementById("chat-form");
@@ -102,7 +103,8 @@
       try {
         const res = await fetch(API_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json" ,
+          "Ocp-Apim-Subscription-Key": DEMO_KEY},
           body: JSON.stringify({ question })
         });
 
